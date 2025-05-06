@@ -8,11 +8,12 @@ st.set_page_config(page_title="Evin Masrafını Hesap Etme", layout="centered")
 st.title("🏠 Evin Masrafını Hesap Etme")
 st.write("Aşağıdaki bilgileri doldurarak evin sigorta masrafını tahmin edebilirsiniz.")
 
-# Kullanıcının masaüstü dizinini alma
-desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-file_path = os.path.join(desktop_path, "insurance_modified.csv")
+# 📁 Dosya yolları
+model_path = "model.pkl"
+columns_path = "model_columns.pkl"
+file_path = "insurance_modified.csv"
 
-# Kullanıcıdan giriş al
+# 📌 Kullanıcı girişleri
 ev_durumu = st.selectbox("Ev Durumu", ["Ev Sahibi", "Kiralık"])
 evcil_hayvan = st.selectbox("Evcil Hayvan Sahibi misiniz?", ["yes", "no"])
 bolge = st.selectbox("Bölge", [
@@ -30,7 +31,7 @@ cocuk_sayisi_kategori = st.selectbox("Çocuk Sayısı", ["Yüksek", "Normal", "D
 kozmetik_durum = st.selectbox("Evin Kozmetik Durumu", ["İyi", "Normal", "Kötü"])
 teminat_bedeli = st.number_input("Evin Teminat Bedeli (₺)", min_value=1000, step=1000)
 
-# Girişleri DataFrame’e dönüştür
+# 🎯 Girişleri dataframe'e çevir
 input_dict = {
     "Ev Durumu": ev_durumu,
     "Evcil Hayvan Sahibi": 1 if evcil_hayvan == "yes" else 0,
@@ -41,19 +42,16 @@ input_dict = {
 }
 input_df = pd.DataFrame([input_dict])
 
-# Model ve kolonları yükle
-model_path = "model.pkl"
-columns_path = "model_columns.pkl"
-
+# 📦 Model ve kolonları yükle
 if not os.path.exists(model_path) or not os.path.exists(columns_path):
-    st.error("Model dosyaları bulunamadı. Lütfen 'model.pkl' ve 'model_columns.pkl' dosyalarının mevcut olduğundan emin olun.")
+    st.error("Model dosyaları eksik. Lütfen 'model.pkl' ve 'model_columns.pkl' dosyalarının dizinde bulunduğundan emin olun.")
 else:
     with open(model_path, "rb") as f:
         model = pickle.load(f)
     with open(columns_path, "rb") as f:
         model_columns = pickle.load(f)
 
-    # one-hot encoding
+    # 🔍 One-hot encoding
     input_processed = pd.get_dummies(input_df)
 
     # Eksik kolonları 0 olarak ekle
@@ -61,23 +59,23 @@ else:
         if col not in input_processed.columns:
             input_processed[col] = 0
 
-    # Kolon sıralaması
     input_processed = input_processed[model_columns]
 
-    # Veriyi yükle
+    # 📊 Veri dosyasını oku
     if os.path.exists(file_path):
         df = pd.read_csv(file_path, delimiter=";")
 
+        # Toplam masrafı hesapla
         toplam_masraf = df["Masraf"].sum()
 
-        if st.button("Beklenen Masraf Tutarı"):
+        # 🎯 Tahmin işlemi
+        if st.button("Beklenen Masraf Tutarını Hesapla"):
             tahmini_masraf = model.predict(input_processed)[0]
             masraf_orani = tahmini_masraf / toplam_masraf
             beklenen_tutar = masraf_orani * teminat_bedeli
 
-            # Sonuçları göster
             st.write(f"**Masraf:** {tahmini_masraf:,.2f} ₺")
             st.write(f"**Masraf Oranı:** {masraf_orani:.4f}")
             st.success(f"💸 Beklenen Masraf Tutarı: {beklenen_tutar:,.2f} ₺")
     else:
-        st.error(f"'{file_path}' dosyası bulunamadı. Lütfen doğru dosyayı masaüstünüzde bulundurduğunuzdan emin olun.")
+        st.error(f"`{file_path}` dosyası bulunamadı. Lütfen 'insurance_modified.csv' dosyasını uygulama dizinine yükleyin.")
