@@ -8,10 +8,10 @@ st.set_page_config(page_title="Evin Masrafını Hesap Etme", layout="centered")
 st.title("🏠 Evin Masrafını Hesap Etme")
 st.write("Aşağıdaki bilgileri doldurarak evin sigorta masrafını tahmin edebilirsiniz.")
 
-# 📁 Dosya yolları
+# 📁 Uygulama dizininden dosya yolları
 model_path = "model.pkl"
 columns_path = "model_columns.pkl"
-file_path = "insurance_modified.csv"
+file_path = "insurance_modified.csv"  # Bu dosya app ile aynı klasörde olmalı
 
 # 📌 Kullanıcı girişleri
 ev_durumu = st.selectbox("Ev Durumu", ["Ev Sahibi", "Kiralık"])
@@ -31,7 +31,7 @@ cocuk_sayisi_kategori = st.selectbox("Çocuk Sayısı", ["Yüksek", "Normal", "D
 kozmetik_durum = st.selectbox("Evin Kozmetik Durumu", ["İyi", "Normal", "Kötü"])
 teminat_bedeli = st.number_input("Evin Teminat Bedeli (₺)", min_value=1000, step=1000)
 
-# 🎯 Girişleri dataframe'e çevir
+# 🎯 Girişleri DataFrame’e dönüştür
 input_dict = {
     "Ev Durumu": ev_durumu,
     "Evcil Hayvan Sahibi": 1 if evcil_hayvan == "yes" else 0,
@@ -43,9 +43,7 @@ input_dict = {
 input_df = pd.DataFrame([input_dict])
 
 # 📦 Model ve kolonları yükle
-if not os.path.exists(model_path) or not os.path.exists(columns_path):
-    st.error("Model dosyaları eksik. Lütfen 'model.pkl' ve 'model_columns.pkl' dosyalarının dizinde bulunduğundan emin olun.")
-else:
+try:
     with open(model_path, "rb") as f:
         model = pickle.load(f)
     with open(columns_path, "rb") as f:
@@ -58,17 +56,14 @@ else:
     for col in model_columns:
         if col not in input_processed.columns:
             input_processed[col] = 0
-
     input_processed = input_processed[model_columns]
 
-    # 📊 Veri dosyasını oku
-    if os.path.exists(file_path):
+    # 📊 CSV dosyasını oku
+    try:
         df = pd.read_csv(file_path, delimiter=";")
-
-        # Toplam masrafı hesapla
         toplam_masraf = df["Masraf"].sum()
 
-        # 🎯 Tahmin işlemi
+        # 🎯 Hesaplama butonu
         if st.button("Beklenen Masraf Tutarını Hesapla"):
             tahmini_masraf = model.predict(input_processed)[0]
             masraf_orani = tahmini_masraf / toplam_masraf
@@ -77,5 +72,8 @@ else:
             st.write(f"**Masraf:** {tahmini_masraf:,.2f} ₺")
             st.write(f"**Masraf Oranı:** {masraf_orani:.4f}")
             st.success(f"💸 Beklenen Masraf Tutarı: {beklenen_tutar:,.2f} ₺")
-    else:
-        st.error(f"`{file_path}` dosyası bulunamadı. Lütfen 'insurance_modified.csv' dosyasını uygulama dizinine yükleyin.")
+    except FileNotFoundError:
+        st.error(f"`{file_path}` dosyası bulunamadı. Lütfen bu dosyanın uygulama klasöründe olduğundan emin olun.")
+
+except FileNotFoundError:
+    st.error("Model dosyaları eksik. Lütfen 'model.pkl' ve 'model_columns.pkl' dosyalarını uygulama dizinine yükleyin.")
